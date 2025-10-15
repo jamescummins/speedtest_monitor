@@ -38,7 +38,7 @@ chmod +x setup_raspberry_pi.sh
 
 ### 3. First Run Authentication
 
-**Important**: Use the virtual environment to avoid "Externally-managed-environment" errors:
+**Important**: The first run requires manual authentication. The script now handles headless environments properly.
 
 ```bash
 cd /home/pi/speedtest_monitor
@@ -46,7 +46,32 @@ source /home/pi/.venv/speedtest_monitor/bin/activate
 python speedtest_monitor.py
 ```
 
-This will open a browser for Google authentication (only needed once).
+**Authentication Options:**
+1. **Headless/SSH Mode**: Script will provide a URL to open on another device
+2. **Desktop Mode**: Opens browser automatically
+3. **Manual Mode**: Copy authorization code from browser
+
+**For Headless Raspberry Pi (most common):**
+1. Run the command above
+2. Copy the provided URL 
+3. Open URL on your phone/computer
+4. Complete Google authorization
+5. Copy the authorization code
+6. Paste it back in the Pi terminal
+
+After first authentication, the script runs automatically without user interaction.
+
+### 4. Test Authentication (Optional)
+
+Use the included test script to verify your setup:
+
+```bash
+cd /home/pi/speedtest_monitor
+source /home/pi/.venv/speedtest_monitor/bin/activate
+python test_auth.py
+```
+
+This will check your authentication and provide detailed status information.
 
 ## Data Access
 
@@ -103,6 +128,28 @@ This error occurs with newer Python installations. Our setup script creates a vi
 source /home/pi/.venv/speedtest_monitor/bin/activate
 pip install [package_name]
 ```
+
+#### Google Auth UI Loop / Browser Issues
+If you're stuck in an authentication loop or browser won't open:
+
+```bash
+# 1. Remove existing token and try again
+rm /home/pi/speedtest_monitor/speedtest_data/token.json
+
+# 2. Run with virtual environment
+cd /home/pi/speedtest_monitor
+source /home/pi/.venv/speedtest_monitor/bin/activate
+python speedtest_monitor.py
+
+# 3. Follow the manual authentication prompts
+# The script will provide a URL to open on another device
+```
+
+**Common auth issues:**
+- **No display/browser**: Script automatically detects headless mode
+- **SSH connection**: Uses console-based authentication
+- **Permission errors**: Check file permissions in speedtest_data folder
+- **Network issues**: Ensure internet connectivity for Google services
 
 #### Other Issues
 ```bash

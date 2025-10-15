@@ -121,25 +121,96 @@ def get_google_drive_service():
     # If no valid credentials, get new ones
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+                logging.info("Refreshed Google Drive credentials")
+            except Exception as e:
+                logging.error(f"Failed to refresh credentials: {str(e)}")
+                creds = None
+        
+        if not creds:
             if not CREDENTIALS_FILE.exists():
                 logging.error(f"Google Drive credentials file not found: {CREDENTIALS_FILE}")
                 logging.error("Please download credentials.json from Google Cloud Console")
                 return None
-                
+            
+            # Check if we're running in a headless environment
+            is_headless = os.environ.get('DISPLAY') is None or os.environ.get('SSH_CLIENT') is not None
+            
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
-            creds = flow.run_local_server(port=0)
+            
+            if is_headless:
+                # Use console-based authentication for headless systems
+                logging.info("Running in headless mode - using console authentication")
+                try:
+                    creds = flow.run_console()
+                except Exception:
+                    # Fallback to manual authentication
+                    logging.info("Console auth failed, using manual authentication")
+                    creds = run_manual_auth_flow(flow)
+            else:
+                # Use browser-based authentication for desktop systems
+                try:
+                    creds = flow.run_local_server(port=0, open_browser=True)
+                except Exception as e:
+                    logging.warning(f"Browser auth failed: {str(e)}, trying console auth")
+                    try:
+                        creds = flow.run_console()
+                    except Exception:
+                        logging.info("Console auth failed, using manual authentication")
+                        creds = run_manual_auth_flow(flow)
         
-        # Save credentials for future use
-        with open(TOKEN_FILE, 'w') as token:
-            token.write(creds.to_json())
+        if creds:
+            # Save credentials for future use
+            with open(TOKEN_FILE, 'w') as token:
+                token.write(creds.to_json())
+            logging.info("Saved new Google Drive credentials")
+        else:
+            logging.error("Failed to obtain Google Drive credentials")
+            return None
     
     try:
         service = build('drive', 'v3', credentials=creds)
+        logging.info("Google Drive service created successfully")
         return service
     except Exception as e:
         logging.error(f"Failed to create Google Drive service: {str(e)}")
+        return None
+
+def run_manual_auth_flow(flow):
+    """Manual authentication flow for headless systems"""
+    try:
+        # Get authorization URL
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        
+        print("\n" + "="*60)
+        print("GOOGLE DRIVE AUTHENTICATION REQUIRED")
+        print("="*60)
+        print("Since this is a headless system, please complete authentication manually:")
+        print(f"\n1. Open this URL in a browser on another device:")
+        print(f"   {auth_url}")
+        print(f"\n2. Complete the authorization process")
+        print(f"3. Copy the authorization code from the final URL")
+        print(f"4. Enter the code below when prompted")
+        print("="*60)
+        
+        # Get authorization code from user
+        code = input("\nEnter the authorization code: ").strip()
+        
+        if not code:
+            logging.error("No authorization code provided")
+            return None
+        
+        # Exchange code for credentials
+        flow.fetch_token(code=code)
+        
+        print("Authentication successful!")
+        logging.info("Manual authentication completed successfully")
+        return flow.credentials
+        
+    except Exception as e:
+        logging.error(f"Manual authentication failed: {str(e)}")
+        print(f"Authentication failed: {str(e)}")
         return None
 
 def find_or_create_drive_folder(service):
@@ -217,10 +288,37 @@ def upload_to_drive(service, folder_id):
         logging.error(f"Failed to upload to Google Drive: {str(e)}")
         return False
 
+def check_google_auth_status():
+    """Check if Google Drive authentication is set up"""
+    if not GOOGLE_DRIVE_AVAILABLE:
+        return False, "Google Drive libraries not installed"
+    
+    if not CREDENTIALS_FILE.exists():
+        return False, f"Credentials file missing: {CREDENTIALS_FILE}"
+    
+    if TOKEN_FILE.exists():
+        try:
+            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
+            if creds and creds.valid:
+                return True, "Authentication valid"
+            elif creds and creds.expired and creds.refresh_token:
+                return True, "Authentication expired but can refresh"
+        except Exception:
+            pass
+    
+    return False, "Authentication required"
+
 def sync_to_cloud():
     """Sync data to Google Drive"""
     if not GOOGLE_DRIVE_AVAILABLE:
         logging.info("Google Drive sync skipped - libraries not available")
+        return False
+    
+    # Check authentication status first
+    auth_ok, auth_msg = check_google_auth_status()
+    if not auth_ok and "required" in auth_msg:
+        logging.warning(f"Google Drive sync skipped - {auth_msg}")
+        logging.info("Run the script manually first to complete authentication")
         return False
     
     try:
