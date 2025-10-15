@@ -15,12 +15,14 @@ A headless Raspberry Pi solution that automatically monitors internet speed ever
 
 ### 1. Setup on Raspberry Pi
 
+**Note**: This setup uses Python virtual environments to resolve the "Externally-managed-environment" error in modern Raspberry Pi OS.
+
 ```bash
 # Clone or download the files to your Pi
 # Make setup script executable
 chmod +x setup_raspberry_pi.sh
 
-# Run setup (installs dependencies, creates cron job)
+# Run setup (installs dependencies in virtual environment, creates cron job)
 ./setup_raspberry_pi.sh
 ```
 
@@ -28,7 +30,7 @@ chmod +x setup_raspberry_pi.sh
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
-3. Enable **Google Drive API**
+3. search for and enable **Google Drive API**
 4. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
 5. Select **Desktop Application**
 6. Download the `credentials.json` file
@@ -36,9 +38,12 @@ chmod +x setup_raspberry_pi.sh
 
 ### 3. First Run Authentication
 
+**Important**: Use the virtual environment to avoid "Externally-managed-environment" errors:
+
 ```bash
 cd /home/pi/speedtest_monitor
-python3 speedtest_monitor.py
+source /home/pi/.venv/speedtest_monitor/bin/activate
+python speedtest_monitor.py
 ```
 
 This will open a browser for Google authentication (only needed once).
@@ -84,10 +89,22 @@ tail speedtest_data/cron.log
 ### Manual Test
 ```bash
 cd /home/pi/speedtest_monitor
-python3 speedtest_monitor.py
+source /home/pi/.venv/speedtest_monitor/bin/activate
+python speedtest_monitor.py
 ```
 
 ### Troubleshooting
+
+#### "Externally-managed-environment" Error
+This error occurs with newer Python installations. Our setup script creates a virtual environment to resolve this:
+
+```bash
+# If you encounter this error, activate the virtual environment:
+source /home/pi/.venv/speedtest_monitor/bin/activate
+pip install [package_name]
+```
+
+#### Other Issues
 ```bash
 # Check system logs
 sudo journalctl -u speedtest-monitor.service
@@ -95,7 +112,8 @@ sudo journalctl -u speedtest-monitor.service
 # Test internet connectivity
 ping google.com
 
-# Test speedtest CLI
+# Test speedtest CLI (in virtual environment)
+source /home/pi/.venv/speedtest_monitor/bin/activate
 speedtest-cli
 ```
 
@@ -160,10 +178,56 @@ def dashboard():
 
 ## Security Notes
 
-- Google credentials stored locally on Pi only
-- OAuth tokens auto-refresh
-- No plain-text passwords required
-- Local data encrypted if Pi has full disk encryption
+- ✅ **Virtual Environment**: Isolated Python environment prevents system conflicts and resolves "Externally-managed-environment" error
+- ✅ **OAuth Security**: Google credentials stored locally with auto-refresh tokens
+- ✅ **No Plain-text Passwords**: All authentication uses secure OAuth flow
+- ✅ **Local Data Storage**: Speed test data stored locally on Pi with optional cloud sync
+
+## Python Environment Management
+
+### Working with Virtual Environments
+
+Our setup uses virtual environments to avoid the "Externally-managed-environment" error:
+
+```bash
+# Activate the virtual environment
+source /home/pi/.venv/speedtest_monitor/bin/activate
+
+# Install additional packages (if needed)
+pip install package_name
+
+# Deactivate when done
+deactivate
+```
+
+### Manual Virtual Environment Setup
+
+If you need to recreate the virtual environment:
+
+```bash
+# Remove existing environment
+rm -rf /home/pi/.venv/speedtest_monitor
+
+# Create new virtual environment
+python3 -m venv /home/pi/.venv/speedtest_monitor
+
+# Activate and install packages
+source /home/pi/.venv/speedtest_monitor/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Alternative: Using pipx (System-wide Tool Installation)
+
+For system-wide tool installation without conflicts:
+
+```bash
+# Install pipx
+sudo apt install pipx
+
+# Install tools globally
+pipx install speedtest-cli
+```
 
 ---
 

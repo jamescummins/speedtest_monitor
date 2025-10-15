@@ -1,6 +1,12 @@
 # Requirements for Raspberry Pi Speed Monitor
+# Install in virtual environment to avoid "Externally-managed-environment" error
+# 
+# Setup:
+#   python3 -m venv /home/pi/.venv/speedtest_monitor
+#   source /home/pi/.venv/speedtest_monitor/bin/activate
+#   pip install -r requirements.txt
 
-# Python dependencies
+# Core dependencies
 speedtest-cli>=2.1.3
 google-api-python-client>=2.0.0
 google-auth>=2.0.0
