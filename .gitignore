@@ -1,0 +1,31 @@
+# Local configuration files
+mount.sh
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment variables
+.env
+.venv/
+venv/
+
+# Development files
+*.log
+*.tmp
+.DS_Store
+.vscode/
+
+# Local data (kept for backup but not synced)
+speedtest_data/*.log
+
+# Web UI specific
+web_ui/static/js/libs/
+web_ui/node_modules/
+*.min.js.map
+speedtest_data/cron.log
+speedtest_data/speed_history_backup.csv
+speedtest_data/speed_history.csv
+speedtest_data/speedtest.log

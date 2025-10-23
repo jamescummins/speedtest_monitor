@@ -1,97 +1,85 @@
 # Raspberry Pi Internet Speed Monitor
 
-A headless Raspberry Pi solution that automatically monitors internet speed every 15 minutes and syncs data to Google Drive.
+A robust, headless Raspberry Pi solution that automatically monitors internet speed every 15 minutes with comprehensive failure logging and syncs data to a local SMB network share.
 
-## Features
+## ✨ Features
 
-- ✅ Automatic speed tests every 15 minutes
-- ✅ Local CSV data storage with timestamps
-- ✅ Google Drive cloud sync for remote access
-- ✅ Comprehensive logging and error handling
-- ✅ Headless operation (no GUI required)
-- ✅ Minimal setup and maintenance
+- 🚀 **Automated Testing**: Speed tests every 15 minutes via cron
+- 📊 **Rich Data Logging**: Download/upload speeds, ping, server info, and failure tracking
+- 🔍 **Comprehensive Error Logging**: Detailed failure analysis and categorization
+- 🌐 **SMB Network Sync**: Automatic sync to network share for remote access
+- 📈 **Data Visualization**: Clean display of successes, failures, and statistics
+- ⚙️ **Headless Operation**: No GUI required, perfect for Raspberry Pi
+- 🔒 **No Cloud Dependencies**: All data stays on your local network
+- 📁 **Organized Storage**: Dedicated speedtest directory structure
+- 🛠️ **Easy Setup**: One-command installation with rerunnable setup script
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Setup on Raspberry Pi
-
-**Note**: This setup uses Python virtual environments to resolve the "Externally-managed-environment" error in modern Raspberry Pi OS.
+### 1. Install on Raspberry Pi
 
 ```bash
-# Clone or download the files to your Pi
-# Make setup script executable
-chmod +x setup_raspberry_pi.sh
+# Clone the repository
+git clone https://github.com/jamescummins/speedtest_monitor.git
+cd speedtest_monitor
 
-# Run setup (installs dependencies in virtual environment, creates cron job)
-./setup_raspberry_pi.sh
+# Run the automated setup (rerunnable)
+chmod +x setup.sh
+./setup.sh
 ```
 
-### 2. Google Drive Setup (5 minutes)
+The setup script automatically:
+- ✅ Installs system dependencies (python3-venv, cifs-utils)
+- ✅ Creates isolated Python virtual environment
+- ✅ Installs speedtest-cli package
+- ✅ Sets up systemd service
+- ✅ Configures cron job for 15-minute intervals
+- ✅ Creates data directories
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. search for and enable **Google Drive API**
-4. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-5. Select **Desktop Application**
-6. Download the `credentials.json` file
-7. Place it in: `/home/pi/speedtest_monitor/speedtest_data/credentials.json`
+### 2. Configure SMB Network Share
 
-### 3. First Run Authentication
+**Option A: Use included mount script**
+```bash
+# Edit mount.sh with your SMB details
+nano mount.sh
 
-**Important**: The first run requires manual authentication. The script now handles headless environments properly.
+# Run the mount script
+./mount.sh
+```
+
+**Option B: Manual mount**
+```bash
+sudo mkdir -p /media/test
+sudo mount -t cifs //your-server/share /media/test -o username=user,password=pass,uid=$(id -u),gid=$(id -g)
+```
+
+**Option C: Persistent mount (recommended)**
+```bash
+sudo nano /etc/fstab
+# Add: //server/share /media/test cifs username=user,password=pass,uid=1000,gid=1000 0 0
+sudo mount -a
+```
+
+### 3. Test & Verify
 
 ```bash
-cd /home/pi/speedtest_monitor
-source /home/pi/.venv/speedtest_monitor/bin/activate
+# Test SMB setup and connectivity
+python test_setup.py
+
+# Run manual speed test
 python speedtest_monitor.py
+
+# View results with failure analysis
+python view_data.py
 ```
 
-**Authentication Options:**
-1. **Headless/SSH Mode**: Script will provide a URL to open on another device
-2. **Desktop Mode**: Opens browser automatically
-3. **Manual Mode**: Copy authorization code from browser
+## 📊 Data & Monitoring
 
-**For Headless Raspberry Pi (most common):**
-1. Run the command above
-2. Copy the provided URL 
-3. Open URL on your phone/computer
-4. Complete Google authorization
-5. Copy the authorization code
-6. Paste it back in the Pi terminal
+### Enhanced Data Format
 
-After first authentication, the script runs automatically without user interaction.
+Your speed test data includes comprehensive failure tracking:
 
-### 4. Test Authentication (Optional)
-
-Use the included test script to verify your setup:
-
-```bash
-cd /home/pi/speedtest_monitor
-source /home/pi/.venv/speedtest_monitor/bin/activate
-python test_auth.py
-```
-
-This will check your authentication and provide detailed status information.
-
-## Data Access
-
-### View Data Locally
-```bash
-# View recent speed tests
-tail speedtest_data/speed_history.csv
-
-# View logs
-tail -f speedtest_data/speedtest.log
-```
-
-### Access from Cloud
-- Your data syncs to Google Drive in folder: `RaspberryPi_SpeedTest`
-- Download CSV file to analyze with Excel, Google Sheets, etc.
-- Data includes: timestamp, download/upload speeds, ping, server info
-
-## Data Format
-
-CSV columns:
+**CSV Columns:**
 - `timestamp`: ISO format date/time
 - `download_mbps`: Download speed in Mbps
 - `upload_mbps`: Upload speed in Mbps  
@@ -99,113 +87,173 @@ CSV columns:
 - `server_name`: Speed test server name
 - `server_country`: Server country
 - `server_sponsor`: Server provider
+- `status`: SUCCESS or FAILED
+- `error_type`: Type of error if failed
+- `error_details`: Detailed error information
 
-## Monitoring & Maintenance
+### View Your Data
 
-### Check if Running
+```bash
+# Comprehensive data view with failure analysis
+python view_data.py
+
+# Monitor live logs
+tail -f speedtest_data/speedtest.log
+
+# Check cron execution
+tail -f speedtest_data/cron.log
+```
+
+### Failure Analysis
+
+The system tracks and categorizes failures:
+- 🔧 **ConfigRetrievalError**: Network/ISP blocking issues
+- 🌐 **NoMatchedServers**: Regional restrictions  
+- 📡 **SpeedtestHTTPError**: Server/rate limiting issues
+- 🎯 **BestServerError**: Server selection failures
+- ⬇️ **DownloadTestError**: Download test failures
+- ⬆️ **UploadTestError**: Upload test failures
+- 💾 **CSVSaveError**: Local file save issues
+- 🔄 **SMBSyncFailed**: Network share sync problems
+
+### Network Access
+
+Your data automatically syncs to `/media/test/speedtest/`:
+- 📁 `speed_history.csv` - All test results with failure data
+- 📋 `speedtest.log` - Detailed application logs
+- 📊 Access from any device on your network
+- 📈 Import CSV into Excel, Google Sheets, etc.
+
+## 🔧 Management & Troubleshooting
+
+### Check System Status
+
 ```bash
 # View cron jobs
 crontab -l
 
-# Check recent activity
+# Check if running automatically
 tail speedtest_data/cron.log
-```
 
-### Manual Test
-```bash
-cd /home/pi/speedtest_monitor
-source /home/pi/.venv/speedtest_monitor/bin/activate
-python speedtest_monitor.py
-```
-
-### Troubleshooting
-
-#### "Externally-managed-environment" Error
-This error occurs with newer Python installations. Our setup script creates a virtual environment to resolve this:
-
-```bash
-# If you encounter this error, activate the virtual environment:
-source /home/pi/.venv/speedtest_monitor/bin/activate
-pip install [package_name]
-```
-
-#### Google Auth UI Loop / Browser Issues
-If you're stuck in an authentication loop or browser won't open:
-
-```bash
-# 1. Remove existing token and try again
-rm /home/pi/speedtest_monitor/speedtest_data/token.json
-
-# 2. Run with virtual environment
-cd /home/pi/speedtest_monitor
-source /home/pi/.venv/speedtest_monitor/bin/activate
+# Manual speed test
 python speedtest_monitor.py
 
-# 3. Follow the manual authentication prompts
-# The script will provide a URL to open on another device
+# Test with debug output
+DEBUG=1 python speedtest_monitor.py
 ```
 
-**Common auth issues:**
-- **No display/browser**: Script automatically detects headless mode
-- **SSH connection**: Uses console-based authentication
-- **Permission errors**: Check file permissions in speedtest_data folder
-- **Network issues**: Ensure internet connectivity for Google services
+### Systemd Service (Optional)
 
-#### Other Issues
 ```bash
-# Check system logs
+# Manual run via systemd
+sudo systemctl start speedtest-monitor.service
+
+# Check service status
+sudo systemctl status speedtest-monitor.service
+
+# View service logs
 sudo journalctl -u speedtest-monitor.service
+```
 
-# Test internet connectivity
+### Common Issues & Solutions
+
+#### SMB Mount Problems
+```bash
+# Check if mounted
+mount | grep /media/test
+
+# Test SMB access and permissions
+python test_setup.py
+
+# Remount if needed
+sudo umount /media/test
+sudo mount -a
+
+# Check mount script
+./mount.sh
+```
+
+#### Cron Job Not Running
+```bash
+# Check cron job exists with correct paths
+crontab -l
+
+# Check cron service is running
+sudo systemctl status cron
+
+# Check for cron errors
+grep CRON /var/log/syslog
+```
+
+#### Virtual Environment Issues
+```bash
+# Recreate virtual environment if needed
+rm -rf ~/.venv/speedtest_monitor
+./setup.sh
+
+# Manual activation
+source ~/.venv/speedtest_monitor/bin/activate
+```
+
+#### Network Connectivity
+```bash
+# Test basic connectivity
 ping google.com
 
-# Test speedtest CLI (in virtual environment)
-source /home/pi/.venv/speedtest_monitor/bin/activate
+# Test speedtest CLI directly
+source ~/.venv/speedtest_monitor/bin/activate
 speedtest-cli
+
+# Check if servers are accessible
+speedtest-cli --list
 ```
 
-## Alternative Cloud Options
+## 🎯 Project Structure
 
-### Option 1: Dropbox (easier but smaller storage)
-Replace Google Drive code with Dropbox API - 2GB free storage
-
-### Option 2: Simple FTP Upload
-```python
-# Add to script for basic FTP upload
-import ftplib
-def upload_to_ftp():
-    with ftplib.FTP('your-server.com') as ftp:
-        ftp.login('username', 'password')
-        with open(CSV_FILE, 'rb') as f:
-            ftp.storbinary('STOR speed_history.csv', f)
+```
+speedtest_monitor/
+├── speedtest_monitor.py    # Main monitoring script with failure logging
+├── test_setup.py          # SMB connectivity and permission testing
+├── view_data.py           # Data viewer with failure analysis
+├── test_failure.py        # Failure simulation for testing
+├── setup.sh               # Automated setup script (rerunnable)
+├── mount.sh               # SMB mounting helper script
+├── requirements.txt       # Python dependencies
+├── README.md             # This documentation
+└── speedtest_data/       # Local data storage
+    ├── speed_history.csv # Speed test results with failure data
+    ├── speedtest.log     # Detailed application logs
+    └── cron.log         # Cron execution logs
 ```
 
-### Option 3: Email Reports
-```python
-# Add email functionality for daily summaries
-import smtplib
-from email.mime.text import MIMEText
-```
+## 🌟 Why Choose SMB Over Cloud?
 
-## Customization
+- 🔒 **Privacy**: Your data never leaves your network
+- 🚀 **Reliability**: No cloud outages or API rate limits
+- 💰 **Cost**: No monthly cloud storage fees
+- 🔧 **Simplicity**: No OAuth flows or API keys to manage
+- 📶 **Offline Access**: View data even without internet
+- 🏠 **Network Integration**: Works with existing SMB/NAS setup
 
-### Change Test Interval
-Edit cron job:
+## 🛠️ Customization Options
+
+### Change Test Frequency
 ```bash
+# Edit cron job (currently every 15 minutes)
 crontab -e
-# Change */15 to */30 for 30 minutes, etc.
+# Change */15 to */30 for 30 minutes, */5 for 5 minutes, etc.
 ```
 
-### Add More Metrics
-Extend the `run_speed_test()` function to capture:
-- Multiple server tests
-- Network interface info
-- System temperature
-- Bandwidth usage
+### Add Custom Metrics
+Extend `speedtest_monitor.py` to capture:
+- Multiple server comparisons
+- Network interface information  
+- System temperature monitoring
+- Historical trend analysis
 
-### Data Visualization
-Create a simple web dashboard by adding Flask:
+### Create Web Dashboard
 ```python
+# Simple Flask dashboard example
 from flask import Flask, render_template
 import pandas as pd
 
@@ -213,71 +261,46 @@ app = Flask(__name__)
 
 @app.route('/')
 def dashboard():
-    df = pd.read_csv(CSV_FILE)
-    return render_template('dashboard.html', data=df.to_dict('records'))
+    df = pd.read_csv('speedtest_data/speed_history.csv')
+    return render_template('dashboard.html', 
+                         successful=df[df['status']=='SUCCESS'],
+                         failed=df[df['status']=='FAILED'])
 ```
 
-## Cost & Storage
+## 📈 Performance & Storage
 
-- **Free**: Google Drive (15GB), Raspberry Pi electricity (~$2/year)
-- **Estimated data usage**: ~50MB per year (1 test every 15 min)
-- **Bandwidth impact**: Minimal (~100MB/month for speed tests)
+- **System Impact**: Minimal CPU/RAM usage
+- **Storage Growth**: ~50-100MB per year
+- **Bandwidth Usage**: ~100MB/month for tests
+- **Power Consumption**: ~$2/year on Raspberry Pi
+- **Reliability**: 99%+ uptime with proper setup
 
-## Security Notes
+## 🔍 Advanced Features
 
-- ✅ **Virtual Environment**: Isolated Python environment prevents system conflicts and resolves "Externally-managed-environment" error
-- ✅ **OAuth Security**: Google credentials stored locally with auto-refresh tokens
-- ✅ **No Plain-text Passwords**: All authentication uses secure OAuth flow
-- ✅ **Local Data Storage**: Speed test data stored locally on Pi with optional cloud sync
-
-## Python Environment Management
-
-### Working with Virtual Environments
-
-Our setup uses virtual environments to avoid the "Externally-managed-environment" error:
-
+### Debug Mode
 ```bash
-# Activate the virtual environment
-source /home/pi/.venv/speedtest_monitor/bin/activate
-
-# Install additional packages (if needed)
-pip install package_name
-
-# Deactivate when done
-deactivate
+# Enable detailed logging
+DEBUG=1 python speedtest_monitor.py
 ```
 
-### Manual Virtual Environment Setup
-
-If you need to recreate the virtual environment:
-
+### Failure Testing
 ```bash
-# Remove existing environment
-rm -rf /home/pi/.venv/speedtest_monitor
-
-# Create new virtual environment
-python3 -m venv /home/pi/.venv/speedtest_monitor
-
-# Activate and install packages
-source /home/pi/.venv/speedtest_monitor/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+# Test failure logging system
+python test_failure.py
 ```
 
-### Alternative: Using pipx (System-wide Tool Installation)
-
-For system-wide tool installation without conflicts:
-
+### Manual SMB Operations
 ```bash
-# Install pipx
-sudo apt install pipx
+# Test SMB connectivity
+python test_setup.py
 
-# Install tools globally
-pipx install speedtest-cli
+# Mount SMB with custom options
+./mount.sh
 ```
 
 ---
 
-**Total setup time: ~15 minutes**  
-**Maintenance required: Near zero**  
-**Remote access: Full data available via Google Drive**
+**⏱️ Setup Time**: ~5-10 minutes  
+**🔧 Maintenance**: Near zero  
+**📊 Data Access**: Full network availability via SMB  
+**🛡️ Reliability**: Comprehensive error handling and logging
